@@ -53,7 +53,7 @@ de Streamlit: son funciones puras, faciles de probar por separado.
 
 ## Nota sobre los datos de ejemplo
 
-Los anios 2019-2022 del ejemplo de Microsoft son aproximaciones pensadas
+Los años 2019-2022 del ejemplo de Microsoft son aproximaciones pensadas
 solo para probar la interfaz; unicamente 2018 y 2023 proceden de los
 estados financieros reales. No usar para sacar conclusiones de inversion.
 
