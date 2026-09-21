@@ -4,9 +4,8 @@ metricas.py
 Diagnostico de calidad del negocio: margenes, crecimiento, generacion de
 caja y solidez financiera.
 
-Todas las funciones reciben un DatosEmpresa y devuelven listas (una por
-ejercicio) o escalares. No imprimen nada ni dependen de Streamlit: asi
-pueden probarse por separado.
+Funciones puras: reciben un DatosEmpresa y devuelven listas o escalares,
+sin depender de Streamlit.
 """
 
 import pandas as pd
@@ -14,20 +13,8 @@ import pandas as pd
 from datos import DatosEmpresa
 
 
-# ----------------------------------------------------------------------
-# Utilidades de crecimiento
-# ----------------------------------------------------------------------
-
 def cagr(inicial: float, final: float, anios: int) -> float | None:
-    """
-    Tasa de crecimiento anual compuesta.
-
-        CAGR = (final / inicial) ** (1 / anios) - 1
-
-    Devuelve None cuando no esta definida: periodo nulo, valor inicial no
-    positivo, o paso de negativo a positivo (un crecimiento porcentual no
-    significa nada si la base es negativa).
-    """
+    """Tasa de crecimiento anual compuesta: (final/inicial)**(1/anios) - 1."""
     if anios <= 0 or inicial <= 0 or final <= 0:
         return None
     return (final / inicial) ** (1 / anios) - 1
@@ -40,18 +27,6 @@ def cagr_serie(serie: list[float]) -> float | None:
     return cagr(serie[0], serie[-1], len(serie) - 1)
 
 
-def variacion_anual(serie: list[float]) -> list[float | None]:
-    """Variacion porcentual ejercicio a ejercicio. El primer valor es None."""
-    resultado: list[float | None] = [None]
-    for anterior, actual in zip(serie, serie[1:]):
-        resultado.append((actual / anterior - 1) if anterior > 0 else None)
-    return resultado
-
-
-# ----------------------------------------------------------------------
-# Magnitudes derivadas
-# ----------------------------------------------------------------------
-
 def ebitda(empresa: DatosEmpresa) -> list[float]:
     """EBITDA = EBIT + depreciacion y amortizacion."""
     return [e + d for e, d in zip(empresa.ebit, empresa.dya)]
@@ -59,13 +34,11 @@ def ebitda(empresa: DatosEmpresa) -> list[float]:
 
 def free_cash_flow(empresa: DatosEmpresa, restar_sbc: bool = True) -> list[float]:
     """
-    FCF = flujo de caja operativo - CapEx  (- SBC, opcionalmente).
+    FCF = flujo de caja operativo - CapEx (- SBC, opcionalmente).
 
-    El estado de flujos de caja no resta la retribucion en acciones, porque
-    contablemente no es una salida de caja. Pero es un gasto real de
-    personal y diluye al accionista, asi que la formacion del club
-    recomienda restarla en el analisis. Se deja como opcion para poder
-    comparar ambos criterios.
+    El estado de flujos de caja no resta la retribucion en acciones (SBC)
+    porque no es una salida de caja, pero es un gasto real de personal que
+    diluye al accionista. Se deja como opcion para comparar ambos criterios.
     """
     fcf = [o - c for o, c in zip(empresa.ocf, empresa.capex)]
     if restar_sbc:
@@ -82,10 +55,6 @@ def fcf_por_accion(empresa: DatosEmpresa, restar_sbc: bool = True) -> list[float
     return [f / a for f, a in zip(free_cash_flow(empresa, restar_sbc), empresa.acciones)]
 
 
-# ----------------------------------------------------------------------
-# Margenes
-# ----------------------------------------------------------------------
-
 def margenes(empresa: DatosEmpresa, restar_sbc: bool = True) -> dict[str, list[float]]:
     """Margen bruto, EBIT, neto, EBITDA y FCF, ejercicio a ejercicio."""
     ing = empresa.ingresos
@@ -99,29 +68,15 @@ def margenes(empresa: DatosEmpresa, restar_sbc: bool = True) -> dict[str, list[f
 
 
 def conversion_caja(empresa: DatosEmpresa, restar_sbc: bool = True) -> list[float | None]:
-    """
-    FCF Conversion = FCF / beneficio neto.
-
-    Que porcentaje del beneficio contable acaba convirtiendose en caja
-    disponible. Cuanto mas alto, mejor.
-    """
+    """FCF Conversion = FCF / beneficio neto: que parte del beneficio contable se hace caja."""
     return [
         (f / b) if b > 0 else None
         for f, b in zip(free_cash_flow(empresa, restar_sbc), empresa.beneficio_neto)
     ]
 
 
-# ----------------------------------------------------------------------
-# Solidez financiera (ultimo ejercicio)
-# ----------------------------------------------------------------------
-
 def deuda_neta(empresa: DatosEmpresa) -> float:
-    """
-    Deuda neta = deuda total - caja e inversiones a corto.
-
-    Negativa significa caja neta: la empresa podria cancelar toda su deuda
-    con el efectivo que tiene.
-    """
+    """Deuda neta = deuda total - caja e inversiones. Negativa = caja neta."""
     deuda_total = empresa.deuda_largo_plazo + empresa.deuda_corriente
     return deuda_total - empresa.caja_e_inversiones
 
@@ -144,10 +99,6 @@ def working_capital(empresa: DatosEmpresa) -> float:
     """Fondo de maniobra = activos corrientes - pasivos corrientes."""
     return empresa.activos_corrientes - empresa.pasivos_corrientes
 
-
-# ----------------------------------------------------------------------
-# Resumenes para la interfaz
-# ----------------------------------------------------------------------
 
 def tabla_evolucion(empresa: DatosEmpresa, restar_sbc: bool = True) -> pd.DataFrame:
     """Magnitudes absolutas por ejercicio, en millones."""
@@ -183,17 +134,13 @@ def tabla_crecimiento(empresa: DatosEmpresa, restar_sbc: bool = True) -> pd.Data
         "FCF por accion": fcf_por_accion(empresa, restar_sbc),
         "Acciones en circulacion": empresa.acciones,
     }
-    return pd.DataFrame(
-        {"CAGR": {nombre: cagr_serie(s) for nombre, s in series.items()}}
-    )
+    return pd.DataFrame({"CAGR": {nombre: cagr_serie(s) for nombre, s in series.items()}})
 
 
 def senales(empresa: DatosEmpresa, restar_sbc: bool = True) -> list[tuple[str, bool, str]]:
     """
-    Comprobaciones cualitativas derivadas de la formacion del club.
-
-    Devuelve (titulo, cumple, explicacion). No son reglas absolutas: son
-    indicios que el analista debe interpretar.
+    Comprobaciones cualitativas de la formacion del club: (titulo, cumple,
+    explicacion). No son reglas absolutas, son indicios a interpretar.
     """
     resultado = []
     crec = {

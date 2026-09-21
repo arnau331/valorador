@@ -4,18 +4,8 @@ valoracion.py
 Multiplos, retorno esperado, descuento de flujos de caja (DCF) y margen
 de seguridad.
 
-Igual que metricas.py: funciones puras que reciben un DatosEmpresa (y, en
-varias, el diccionario de supuestos de la barra lateral), sin dependencia
-de Streamlit.
-
-'supuestos' es el diccionario construido en valorador_app.py:
-    {
-        "tasa_libre_riesgo": float,      # p.ej. 0.045
-        "coste_oportunidad": float,      # tasa de descuento, p.ej. 0.10
-        "crecimiento_esperado": float,   # crecimiento anual del BPA, p.ej. 0.10
-        "multiplo_salida": float,        # PER esperado al final del horizonte
-        "horizonte": int,                # anios
-    }
+'supuestos' es el diccionario de la barra lateral: tasa_libre_riesgo,
+coste_oportunidad, crecimiento_esperado, multiplo_salida y horizonte.
 """
 
 import pandas as pd
@@ -24,12 +14,8 @@ import metricas
 from datos import DatosEmpresa
 
 
-# ----------------------------------------------------------------------
-# Multiplos actuales
-# ----------------------------------------------------------------------
-
 def per_actual(empresa: DatosEmpresa) -> float | None:
-    """PER = Precio / BPA, usando el BPA del ultimo ejercicio."""
+    """PER = Precio / BPA, con el BPA del ultimo ejercicio."""
     bpa_actual = metricas.bpa(empresa)[-1]
     if bpa_actual <= 0:
         return None
@@ -37,13 +23,13 @@ def per_actual(empresa: DatosEmpresa) -> float | None:
 
 
 def earnings_yield(empresa: DatosEmpresa) -> float | None:
-    """Inversa del PER: que parte del precio recibes cada anio en beneficios."""
+    """Inversa del PER."""
     per = per_actual(empresa)
     return (1 / per) if per else None
 
 
 def fcf_yield(empresa: DatosEmpresa, restar_sbc: bool = True) -> float | None:
-    """FCF Yield = (FCF/Accion) / Precio. El multiplo que prefiere el club."""
+    """FCF Yield = (FCF/Accion) / Precio."""
     if empresa.precio <= 0:
         return None
     fcf_share = metricas.fcf_por_accion(empresa, restar_sbc)[-1]
@@ -56,14 +42,8 @@ def dividend_yield(empresa: DatosEmpresa) -> float:
     return empresa.dividendo_por_accion / empresa.precio
 
 
-def multiplos_actuales(
-    empresa: DatosEmpresa, supuestos: dict, restar_sbc: bool = True
-) -> dict:
-    """
-    Foto de los multiplos de hoy, junto a la tasa libre de riesgo para
-    poder compararlos: una Yield por debajo de ella solo se justifica si
-    la empresa crece rapido.
-    """
+def multiplos_actuales(empresa: DatosEmpresa, supuestos: dict, restar_sbc: bool = True) -> dict:
+    """PER, Earnings Yield, FCF Yield y Dividend Yield de hoy, junto a la tasa libre de riesgo."""
     return {
         "per": per_actual(empresa),
         "earnings_yield": earnings_yield(empresa),
@@ -73,32 +53,23 @@ def multiplos_actuales(
     }
 
 
-# ----------------------------------------------------------------------
-# Retorno esperado
-# ----------------------------------------------------------------------
-
 def retorno_esperado(empresa: DatosEmpresa, supuestos: dict) -> dict:
     """
-    Descompone el retorno esperado en sus tres componentes:
-
-        Retorno esperado = Crecimiento BPA + Dividendos +/- Var. multiplo
-
-    Proyecta el BPA al crecimiento asumido durante el horizonte, aplica el
-    multiplo de salida para obtener el precio final, y calcula el CAGR de
-    precio resultante. La expansion/contraccion del multiplo es la parte
-    de ese CAGR que no viene del crecimiento del BPA. El dividendo se
-    anade sin componer, tal como lo plantea la formacion.
+    Retorno esperado = crecimiento del BPA + dividendos +/- variacion del
+    multiplo. Proyecta el BPA al crecimiento asumido, aplica el multiplo
+    de salida para obtener el precio final, y separa el CAGR de precio
+    resultante en la parte que viene del crecimiento y la que viene del
+    cambio de multiplo.
     """
     g = supuestos["crecimiento_esperado"]
     n = int(supuestos["horizonte"])
     multiplo_final = supuestos["multiplo_salida"]
 
     bpa_actual = metricas.bpa(empresa)[-1]
+    if bpa_actual <= 0:
+        return {"error": "El BPA del ultimo ejercicio es negativo o nulo."}
+
     multiplo_actual = per_actual(empresa)
-
-    if bpa_actual <= 0 or multiplo_actual is None or empresa.precio <= 0 or n <= 0:
-        return {"error": "Hacen falta un BPA y un precio positivos para proyectar el retorno."}
-
     bpa_final = bpa_actual * (1 + g) ** n
     precio_final = bpa_final * multiplo_final
 
@@ -121,30 +92,21 @@ def retorno_esperado(empresa: DatosEmpresa, supuestos: dict) -> dict:
     }
 
 
-# ----------------------------------------------------------------------
-# Valor intrinseco
-# ----------------------------------------------------------------------
-
 def dcf_valor_intrinseco(
     empresa: DatosEmpresa, supuestos: dict, restar_sbc: bool = True
 ) -> dict:
     """
     Valor intrinseco por descuento de flujos de caja (FCF por accion).
 
-    Proyecta el FCF/accion durante el horizonte al crecimiento esperado y
-    descuenta cada flujo al coste de oportunidad. El valor terminal no usa
-    una perpetuidad (evita el problema de que el coste de oportunidad sea
-    menor que el crecimiento): aplica el multiplo de salida al BPA final,
-    igual que en 'retorno_esperado', para que ambos metodos compartan los
-    mismos supuestos de crecimiento y salida.
+    El valor terminal no usa una perpetuidad de Gordon (que exige que el
+    coste de oportunidad supere al crecimiento): aplica el multiplo de
+    salida al BPA final, igual que en retorno_esperado, para que ambos
+    metodos compartan los mismos supuestos.
     """
     r = supuestos["coste_oportunidad"]
     g = supuestos["crecimiento_esperado"]
     n = int(supuestos["horizonte"])
     multiplo_final = supuestos["multiplo_salida"]
-
-    if r <= 0:
-        return {"error": "El coste de oportunidad debe ser mayor que cero."}
 
     bpa_actual = metricas.bpa(empresa)[-1]
     if bpa_actual <= 0:
@@ -179,7 +141,7 @@ def dcf_valor_intrinseco(
 
 
 def tabla_flujos_dcf(resultado_dcf: dict) -> pd.DataFrame:
-    """Convierte el detalle de 'dcf_valor_intrinseco' en una tabla para mostrar."""
+    """Convierte el detalle de dcf_valor_intrinseco en una tabla para mostrar."""
     tabla = pd.DataFrame(resultado_dcf["flujos"]).set_index("anio")
     tabla.columns = ["FCF por accion", "Valor presente"]
     return tabla
@@ -187,22 +149,14 @@ def tabla_flujos_dcf(resultado_dcf: dict) -> pd.DataFrame:
 
 def valor_intrinseco_por_multiplo(empresa: DatosEmpresa, supuestos: dict) -> dict:
     """
-    Metodo alternativo, mas simple que el DCF: el precio que habria que
-    pagar hoy para que, proyectando el BPA al crecimiento esperado y
-    vendiendo al multiplo de salida al final del horizonte, el retorno
-    obtenido sea exactamente el coste de oportunidad exigido.
-
-    No tiene en cuenta los flujos de caja intermedios (dividendos,
-    recompras), solo el precio de entrada y de salida -- por eso conviene
-    compararlo con el DCF en vez de usarlo solo.
+    Metodo alternativo al DCF, sin flujos intermedios: el precio que
+    habria que pagar hoy para que, vendiendo al multiplo de salida al
+    final del horizonte, el retorno obtenido sea el coste de oportunidad.
     """
     r = supuestos["coste_oportunidad"]
     g = supuestos["crecimiento_esperado"]
     n = int(supuestos["horizonte"])
     multiplo_final = supuestos["multiplo_salida"]
-
-    if r <= 0:
-        return {"error": "El coste de oportunidad debe ser mayor que cero."}
 
     bpa_actual = metricas.bpa(empresa)[-1]
     if bpa_actual <= 0:
@@ -220,13 +174,7 @@ def valor_intrinseco_por_multiplo(empresa: DatosEmpresa, supuestos: dict) -> dic
 
 
 def margen_seguridad(precio: float, valor_intrinseco: float | None) -> float | None:
-    """
-    MoS = 1 - Precio / Valor.
-
-    Positivo: el precio esta por debajo del valor intrinseco estimado
-    (zona de compra). Negativo: el mercado paga mas de lo que vale, segun
-    esta estimacion.
-    """
+    """MoS = 1 - Precio/Valor. Positivo: precio por debajo del valor intrinseco."""
     if valor_intrinseco is None or valor_intrinseco <= 0:
         return None
     return 1 - precio / valor_intrinseco
@@ -235,15 +183,13 @@ def margen_seguridad(precio: float, valor_intrinseco: float | None) -> float | N
 def resumen_valoracion(
     empresa: DatosEmpresa, supuestos: dict, restar_sbc: bool = True
 ) -> dict:
-    """Agrupa los dos metodos de valor intrinseco junto a su margen de seguridad."""
+    """Agrupa DCF y metodo de multiplos junto a su margen de seguridad."""
     dcf = dcf_valor_intrinseco(empresa, supuestos, restar_sbc)
     multiplo = valor_intrinseco_por_multiplo(empresa, supuestos)
 
     resultado = {"dcf": dcf, "multiplo": multiplo}
-
     if "valor_intrinseco" in dcf:
         resultado["mos_dcf"] = margen_seguridad(empresa.precio, dcf["valor_intrinseco"])
     if "valor_intrinseco" in multiplo:
         resultado["mos_multiplo"] = margen_seguridad(empresa.precio, multiplo["valor_intrinseco"])
-
     return resultado

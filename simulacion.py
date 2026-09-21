@@ -2,10 +2,8 @@
 simulacion.py
 -------------
 Analisis de sensibilidad y simulacion de Monte Carlo sobre el valor
-intrinseco (DCF) y el retorno esperado, para ver cuanto dependen de los
+intrinseco (DCF) o el retorno esperado, para ver cuanto dependen de los
 supuestos de crecimiento, coste de oportunidad y multiplo de salida.
-
-Funciones puras, sin Streamlit, igual que metricas.py y valoracion.py.
 """
 
 import numpy as np
@@ -38,7 +36,7 @@ def _formatear(variable: str, valor: float) -> str:
 
 
 def rango_alrededor(variable: str, valor_central: float, n: int = 5) -> list[float]:
-    """n valores centrados en valor_central, espaciados por el paso por defecto de la variable."""
+    """n valores centrados en valor_central, espaciados por el paso de la variable."""
     paso = VARIABLES[variable]["paso"]
     mitad = n // 2
     valores = [valor_central + (i - mitad) * paso for i in range(n)]
@@ -69,11 +67,7 @@ def tabla_sensibilidad(
     objetivo: str = "valor_intrinseco",
     restar_sbc: bool = True,
 ) -> pd.DataFrame:
-    """
-    Cruza dos supuestos (p.ej. crecimiento vs multiplo de salida) y muestra
-    el valor intrinseco o el retorno esperado resultante para cada
-    combinacion, manteniendo el resto de supuestos fijos.
-    """
+    """Cruza dos supuestos y muestra el valor intrinseco o el retorno esperado resultante."""
     if eje_filas == eje_columnas:
         raise ValueError("Las dos variables de la tabla deben ser distintas.")
 
@@ -100,10 +94,6 @@ def tabla_sensibilidad(
     return tabla
 
 
-# ----------------------------------------------------------------------
-# Monte Carlo
-# ----------------------------------------------------------------------
-
 def monte_carlo(
     empresa: DatosEmpresa,
     supuestos: dict,
@@ -116,13 +106,11 @@ def monte_carlo(
     semilla: int | None = 42,
 ) -> pd.DataFrame:
     """
-    Simula 'n_simulaciones' escenarios muestreando crecimiento esperado,
-    multiplo de salida y coste de oportunidad de normales centradas en los
-    supuestos de la barra lateral, en vez de fijarlos a un unico valor.
-
+    Simula 'n_simulaciones' escenarios muestreando crecimiento, multiplo de
+    salida y coste de oportunidad de normales centradas en los supuestos.
     El multiplo se trunca a un minimo de 1x y el coste de oportunidad a un
-    minimo de 1 punto por encima del crecimiento simulado en cada
-    escenario, para evitar combinaciones sin sentido economico.
+    minimo de 1 punto por encima del crecimiento simulado, para evitar
+    combinaciones sin sentido economico.
     """
     rng = np.random.default_rng(semilla)
 
@@ -159,11 +147,7 @@ def monte_carlo(
 def resumen_monte_carlo(
     resultados: pd.DataFrame, precio_actual: float | None = None
 ) -> dict:
-    """
-    Percentiles clave de la distribucion de resultados y, si se da el
-    precio actual, la probabilidad de que la empresa este infravalorada
-    (valor intrinseco simulado > precio) segun el propio Monte Carlo.
-    """
+    """Percentiles de la distribucion y, si se da el precio, probabilidad de infravaloracion."""
     serie = resultados["resultado"].dropna()
     if serie.empty:
         return {"error": "Ninguna simulacion produjo un resultado valido."}

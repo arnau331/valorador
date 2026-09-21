@@ -23,12 +23,8 @@ from datos import (
 st.set_page_config(page_title="Valorador de empresas", layout="wide")
 
 
-# ----------------------------------------------------------------------
-# Estado de la sesion
-# ----------------------------------------------------------------------
-# Streamlit reejecuta el script entero con cada interaccion, asi que todo
-# lo que deba sobrevivir a un clic tiene que vivir en st.session_state.
-
+# Streamlit reejecuta el script entero en cada interaccion, asi que el
+# estado que debe sobrevivir a un clic vive en st.session_state.
 if "empresa" not in st.session_state:
     st.session_state.empresa = DatosEmpresa(
         anios=[2019, 2020, 2021, 2022, 2023],
@@ -38,10 +34,6 @@ if "empresa" not in st.session_state:
 
 empresa: DatosEmpresa = st.session_state.empresa
 
-
-# ----------------------------------------------------------------------
-# Barra lateral: identificacion, mercado y supuestos
-# ----------------------------------------------------------------------
 
 with st.sidebar:
     st.header("Empresa")
@@ -58,7 +50,6 @@ with st.sidebar:
 
     empresa.precio = st.number_input(
         "Precio por accion", min_value=0.0, value=float(empresa.precio), step=1.0,
-        help="Precio actual de cotizacion, en moneda por accion.",
     )
     empresa.dividendo_por_accion = st.number_input(
         "Dividendo por accion (ultimo anio)",
@@ -76,11 +67,7 @@ with st.sidebar:
     coste_oportunidad = st.number_input(
         "Coste de oportunidad exigido (%)", min_value=0.0, max_value=40.0,
         value=10.0, step=0.5,
-        help=(
-            "Tasa de descuento. La formacion del club sugiere el doble de la "
-            "tasa libre de riesgo, pero es una postura personal del autor, "
-            "no un estandar. Ajustalo segun tu criterio."
-        ),
+        help="Tasa de descuento. El club sugiere el doble de la tasa libre de riesgo.",
     )
     crecimiento_esperado = st.number_input(
         "Crecimiento anual esperado del BPA (%)", min_value=-20.0, max_value=60.0,
@@ -102,24 +89,13 @@ with st.sidebar:
     }
 
 
-# ----------------------------------------------------------------------
-# Cabecera
-# ----------------------------------------------------------------------
-
 st.title("Valorador de empresas")
-st.caption(
-    "Analisis fundamental: calidad del negocio, valoracion y simulacion "
-    "de escenarios. Todas las cifras de los estados financieros, en millones."
-)
+st.caption("Todas las cifras de los estados financieros van en millones.")
 
 pestana_datos, pestana_calidad, pestana_valoracion, pestana_simulacion = st.tabs(
     ["Datos", "Calidad", "Valoracion", "Simulacion"]
 )
 
-
-# ----------------------------------------------------------------------
-# Pestana 1: entrada de datos
-# ----------------------------------------------------------------------
 
 with pestana_datos:
     col_a, col_b, col_c = st.columns([1, 1, 2])
@@ -170,7 +146,7 @@ with pestana_datos:
 
     st.subheader("Historico")
     st.caption(
-        "Rellena una columna por ejercicio, de mas antiguo a mas reciente. "
+        "Una columna por ejercicio, de mas antiguo a mas reciente. "
         "El CapEx aparece entre parentesis en el informe: introducelo en positivo."
     )
 
@@ -235,10 +211,6 @@ with pestana_datos:
                 st.error(f"No se pudo leer el archivo: {error}")
 
 
-# ----------------------------------------------------------------------
-# Pestanas pendientes
-# ----------------------------------------------------------------------
-
 with pestana_calidad:
     if empresa.validar():
         st.warning("Completa los datos en la pestana anterior.")
@@ -247,9 +219,8 @@ with pestana_calidad:
             "Restar la retribucion en acciones (SBC) al FCF",
             value=True,
             help=(
-                "El estado de flujos de caja no la resta, porque no es una "
-                "salida de efectivo. Pero es un gasto real de personal y "
-                "diluye al accionista."
+                "No es una salida de caja, pero es un gasto real de "
+                "personal que diluye al accionista."
             ),
         )
 
@@ -383,11 +354,7 @@ with pestana_valoracion:
                     f"{mult_val['precio_objetivo']:,.2f}."
                 )
 
-        st.caption(
-            f"Precio actual: {empresa.precio:,.2f} {empresa.moneda}. Un margen de "
-            "seguridad positivo indica que el precio esta por debajo del valor "
-            "intrinseco estimado."
-        )
+        st.caption(f"Precio actual: {empresa.precio:,.2f} {empresa.moneda}.")
 
 with pestana_simulacion:
     if empresa.validar():
@@ -449,9 +416,8 @@ with pestana_simulacion:
         st.divider()
         st.subheader("Simulacion de Monte Carlo")
         st.caption(
-            "Muestrea el crecimiento, el multiplo de salida y el coste de "
-            "oportunidad de distribuciones normales centradas en los supuestos "
-            "de la barra lateral, para ver el rango de resultados posibles."
+            "Muestrea el crecimiento, el multiplo y el coste de oportunidad "
+            "para ver el rango de resultados posibles."
         )
 
         col_1, col_2, col_3, col_4 = st.columns(4)
@@ -507,10 +473,6 @@ with pestana_simulacion:
                     st.metric(
                         "Probabilidad de estar infravalorada",
                         f"{resumen_mc['prob_infravalorada']:.0%}",
-                        help=(
-                            "Fraccion de simulaciones en las que el valor "
-                            "intrinseco supera al precio actual."
-                        ),
                     )
 
                 st.bar_chart(simulacion.histograma(resultados_mc))

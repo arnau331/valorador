@@ -1,14 +1,12 @@
 """
 datos.py
 --------
-Define la estructura de datos de una empresa y las funciones para
-convertirla a/desde una tabla editable y a/desde JSON.
+Estructura de datos de una empresa y su conversion a tabla y JSON.
 
-Convenio de unidades (IMPORTANTE, mantenerlo en todo el proyecto):
-  - Todas las magnitudes de los estados financieros: MILLONES de la moneda.
-  - Precio y dividendo por accion: unidades de moneda POR ACCION.
-  - Acciones en circulacion: MILLONES de acciones.
-  Asi, beneficio_neto / acciones da directamente el BPA en moneda por accion.
+Convencion de unidades en todo el proyecto: los estados financieros van en
+millones de la moneda de la empresa; precio y dividendo, en moneda por
+accion; acciones en circulacion, en millones. Asi beneficio_neto / acciones
+da directamente el BPA en moneda por accion.
 """
 
 from dataclasses import dataclass, field, asdict
@@ -17,8 +15,6 @@ import json
 import pandas as pd
 
 
-# Filas de la tabla historica. El orden aqui es el orden en que
-# apareceran en la interfaz.
 FILAS_HISTORICO = [
     ("ingresos", "Ingresos (Total revenue)"),
     ("beneficio_bruto", "Beneficio bruto (Gross margin)"),
@@ -43,7 +39,7 @@ class DatosEmpresa:
     ticker: str = ""
     moneda: str = "USD"
 
-    # Historico: una lista por magnitud, de mas antiguo a mas reciente.
+    # Una lista por magnitud, de mas antiguo a mas reciente.
     anios: list[int] = field(default_factory=list)
     ingresos: list[float] = field(default_factory=list)
     beneficio_bruto: list[float] = field(default_factory=list)
@@ -67,25 +63,16 @@ class DatosEmpresa:
     precio: float = 0.0
     dividendo_por_accion: float = 0.0
 
-    # --- Utilidades -----------------------------------------------------
-
     @property
     def n_anios(self) -> int:
         return len(self.anios)
 
     def serie(self, clave: str) -> list[float]:
-        """Devuelve una de las series historicas por su nombre de clave."""
+        """Devuelve una serie historica por su nombre de clave."""
         return getattr(self, clave)
 
-    def ultimo(self, clave: str) -> float:
-        """Ultimo valor (mas reciente) de una serie historica."""
-        serie = self.serie(clave)
-        if not serie:
-            raise ValueError(f"La serie '{clave}' esta vacia.")
-        return serie[-1]
-
     def validar(self) -> list[str]:
-        """Devuelve una lista de problemas encontrados. Vacia = todo bien."""
+        """Lista de problemas encontrados en los datos. Vacia = todo bien."""
         problemas = []
 
         if self.n_anios < 2:
@@ -102,13 +89,13 @@ class DatosEmpresa:
         if self.precio <= 0:
             problemas.append("El precio de la accion debe ser mayor que cero.")
 
-        if self.ingresos and any(v <= 0 for v in self.ingresos):
+        if any(v <= 0 for v in self.ingresos):
             problemas.append("Hay ingresos nulos o negativos.")
 
-        if self.acciones and any(v <= 0 for v in self.acciones):
+        if any(v <= 0 for v in self.acciones):
             problemas.append("Hay un numero de acciones nulo o negativo.")
 
-        if self.capex and any(v < 0 for v in self.capex):
+        if any(v < 0 for v in self.capex):
             problemas.append(
                 "Hay CapEx negativo. En el informe aparece entre parentesis, "
                 "pero aqui debe introducirse en positivo."
@@ -116,13 +103,9 @@ class DatosEmpresa:
 
         return problemas
 
-    # --- Conversion a/desde tabla (para st.data_editor) -----------------
-
     def a_tabla(self) -> pd.DataFrame:
-        """Convierte el historico en un DataFrame: filas = conceptos, columnas = anios."""
-        datos = {
-            ETIQUETAS[clave]: self.serie(clave) for clave in CLAVES_HISTORICO
-        }
+        """Convierte el historico en una tabla: filas = conceptos, columnas = anios."""
+        datos = {ETIQUETAS[clave]: self.serie(clave) for clave in CLAVES_HISTORICO}
         tabla = pd.DataFrame(datos, index=self.anios).T
         tabla.columns = [str(a) for a in self.anios]
         return tabla
@@ -135,8 +118,6 @@ class DatosEmpresa:
             clave = etiqueta_a_clave.get(etiqueta)
             if clave is not None:
                 setattr(self, clave, [float(v) for v in fila.tolist()])
-
-    # --- Persistencia ---------------------------------------------------
 
     def a_json(self) -> str:
         return json.dumps(asdict(self), indent=2, ensure_ascii=False)
@@ -157,14 +138,13 @@ def tabla_vacia(anios: list[int]) -> pd.DataFrame:
 
 def ejemplo_microsoft() -> DatosEmpresa:
     """
-    Datos de ejemplo para probar la aplicacion.
+    Datos de ejemplo para probar la aplicacion sin rellenar nada a mano.
 
-    ATENCION: los anios 2019-2022 son APROXIMACIONES para poder probar la
-    interfaz. Solo 2018 y 2023 proceden de los estados financieros reales.
-    Sustituir por los datos del 10-K antes de sacar ninguna conclusion.
+    Los anios 2019-2022 son aproximaciones; solo 2018 y 2023 proceden de
+    los estados financieros reales de Microsoft.
     """
     return DatosEmpresa(
-        nombre="Microsoft Corporation (DATOS DE PRUEBA)",
+        nombre="Microsoft Corporation (datos de prueba)",
         ticker="MSFT",
         moneda="USD",
         anios=[2018, 2019, 2020, 2021, 2022, 2023],

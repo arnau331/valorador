@@ -5,21 +5,22 @@ desarrollada para la candidatura al club de inversion de la UPV.
 
 ## Que hace
 
-- **Datos** — entrada y validacion del historico financiero (income
-  statement, balance, cash flow) y de los datos de mercado de la empresa.
-- **Calidad** — margenes, CAGRs, conversion de caja, ratios de deuda,
-  fondo de maniobra y una serie de senales cualitativas derivadas de la
-  formacion del club.
-- **Valoracion** — multiplos actuales (PER, Earnings Yield, FCF Yield,
-  Dividend Yield) comparados con la tasa libre de riesgo; retorno esperado
-  descompuesto en crecimiento del BPA, dividendos y variacion del
-  multiplo; valor intrinseco por descuento de flujos de caja (DCF) y por
-  el metodo de multiplos; margen de seguridad.
-- **Simulacion** — tabla de sensibilidad cruzando dos supuestos
-  cualesquiera, y simulacion de Monte Carlo sobre el valor intrinseco o
-  el retorno esperado.
+A partir del historico financiero de una empresa (income statement,
+balance y cash flow) calcula:
 
-## Como lanzarla
+- **Calidad**: margenes, CAGRs, conversion de caja, ratios de deuda y
+  fondo de maniobra.
+- **Valoracion**: PER, FCF Yield y Dividend Yield; retorno esperado
+  (crecimiento del BPA + dividendos +/- variacion del multiplo); valor
+  intrinseco por descuento de flujos de caja (DCF) y por el metodo de
+  multiplos; margen de seguridad.
+- **Simulacion**: tabla de sensibilidad y Monte Carlo sobre esos mismos
+  resultados.
+
+Los estados financieros van en millones de la moneda de la empresa; el
+precio y el dividendo, en moneda por accion.
+
+## Instalacion y ejecucion
 
 ```bash
 python -m venv .venv
@@ -28,36 +29,24 @@ pip install -r requirements.txt
 streamlit run valorador_app.py
 ```
 
-La pestana "Datos" incluye un boton "Cargar ejemplo" con cifras de
-Microsoft para probar la aplicacion sin tener que rellenar nada a mano.
+La pestana "Datos" tiene un boton "Cargar ejemplo" con cifras de
+Microsoft para probar la app sin rellenar nada a mano.
 
-## Estructura
+## Base teorica
 
-| Archivo             | Contenido                                                        |
-|----------------------|-------------------------------------------------------------------|
-| `datos.py`           | Dataclass `DatosEmpresa`, entrada/validacion, tabla y JSON.       |
-| `metricas.py`        | Margenes, CAGRs, conversion de caja, ratios de deuda.             |
-| `valoracion.py`      | Multiplos, retorno esperado, DCF, valor por multiplo, MoS.        |
-| `simulacion.py`      | Tabla de sensibilidad y Monte Carlo.                               |
-| `valorador_app.py`   | Interfaz Streamlit con las cuatro pestanas.                        |
+Los conceptos y formulas (margenes, EBITDA, FCF, SBC, multiplos, retorno
+esperado, DCF, margen de seguridad) vienen de la formacion en tres
+documentos del club de inversion de la UPV: largo plazo y psicologia,
+analisis de estados financieros, y basicos de valoracion.
 
-`datos.py`, `metricas.py`, `valoracion.py` y `simulacion.py` no dependen
-de Streamlit: son funciones puras, faciles de probar por separado.
+## Como lo valide
 
-## Convencion de unidades
+Introduje a mano los datos reales de los ultimos ejercicios de Microsoft
+y de Apple (10-K de cada una) y comprobe que los margenes, CAGRs, ratios
+de deuda y multiplos que calcula la app coinciden con las cifras
+publicadas por ambas empresas.
 
-- Magnitudes de los estados financieros: **millones** de la moneda de la
-  empresa.
-- Precio y dividendo por accion: moneda **por accion**.
-- Acciones en circulacion: **millones** de acciones.
+## Desarrollo
 
-## Nota sobre los datos de ejemplo
-
-Los anios 2019-2022 del ejemplo de Microsoft son aproximaciones pensadas
-solo para probar la interfaz; unicamente 2018 y 2023 proceden de los
-estados financieros reales. No usar para sacar conclusiones de inversion.
-
----
-
-Basado en la formacion del club de inversion de la UPV (largo plazo y
-psicologia, analisis de estados financieros, y basicos de valoracion).
+Usé Claude Code como asistente de desarrollo durante la construccion de
+la herramienta.
