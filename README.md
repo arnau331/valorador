@@ -30,7 +30,9 @@ streamlit run valorador_app.py
 ```
 
 La pestaña "Datos" tiene un botón "Cargar ejemplo" con cifras de
-Microsoft para probar la app sin rellenar nada a mano.
+Microsoft para probar la app sin rellenar nada a mano (los años
+2019-2022 de ese ejemplo son aproximados; solo 2018 y 2023 proceden de
+los estados financieros reales).
 
 ## Base teórica
 
